@@ -5,9 +5,12 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const port = 3000;
 const app = express();
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+// const md5 = require ("md5");
 
 const mongoose = require('mongoose');
-const encrypt = require('mongoose-encryption');
+// const encrypt = require('mongoose-encryption');
 
 
 // app for put static files like (css,img,js) in the server
@@ -28,7 +31,7 @@ const userSchema = new mongoose.Schema({
 
 // Using environment variable
 
-userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ['passwordUsr']});
+// userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ['passwordUsr']});
 
 const User = mongoose.model('User', userSchema);
 
@@ -61,9 +64,11 @@ app.post("/register", function(req,res){
             if (result.length > 0)
             res.render("register", {errorMsg : "The email that you provided already exist in the database."})     
             else{
-                registerUser(email, pass)
-                .then(res.render("secrets"))
-                .finally(() => mongoose.connection.close());
+                bcrypt.hash(pass, saltRounds).then(result => {
+                    registerUser(email, result)
+                    .then(res.render("secrets"))
+                    .finally(() => mongoose.connection.close());
+                });
             }
         }) 
     }
@@ -84,15 +89,22 @@ app.post("/login", function(req,res){
             if (!result)
             res.render("login", {errorMsgEmail : "User dont exist in the database.", errorMsgPass: ""})   
             else{
-                if (result.passwordUsr === pass)
+                bcrypt.compare(pass, result.passwordUsr).then(function(result) {
+                if (result === true)
                 res.render("secrets")
                 else
                 res.render("login", {errorMsgEmail : "", errorMsgPass: "Password is incorrect"})
+                });
             }
         })
         .finally(() => mongoose.connection.close());
     }
 }); 
+
+
+
+//////////////////////////////////////////MONGOOSE ASYNC FUNCTIONS//////////////////////////////////////////////
+
 
 async function registerUser(email, pass){
     try {

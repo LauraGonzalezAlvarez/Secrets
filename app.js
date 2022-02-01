@@ -1,16 +1,18 @@
 require('dotenv').config()
 
-const express = require("express");
-const bodyParser = require("body-parser");
-const ejs = require("ejs");
+const express = require('express');
+const bodyParser = require('body-parser');
+const ejs = require('ejs');
 const port = 3000;
-const app = express();
-const bcrypt = require('bcrypt');
-const saltRounds = 10;
-// const md5 = require ("md5");
-
 const mongoose = require('mongoose');
-// const encrypt = require('mongoose-encryption');
+const session = require('express-session');
+const passport = require('passport')
+const passportLocalMongoose = require("passport-local-mongoose");
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
+const findOrCreate = require('mongoose-findorcreate');
+
+const app = express();
 
 
 // app for put static files like (css,img,js) in the server
@@ -18,95 +20,181 @@ app.use(express.static("public"));
 
 
 // Parse data from the browser to server with bodyparser npm
-app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+app.use(bodyParser.raw());
+
 
 // Using EJS with express, mandatory have views directory with (index) - or other name.ejs file!!!!
 app.set('view engine', 'ejs');
 
 
+app.use(session({
+    secret: 'wandeta pequena',
+    resave: false,
+    saveUninitialized: true,  
+}))
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+mongoose.connect('mongodb://localhost:27017/userDB');
+
 const userSchema = new mongoose.Schema({
-    emailUsr: String,
-    passwordUsr: String
+    username: String,
+    password: String,
+    googleId: String,
+    facebookId: String
 })
 
-// Using environment variable
-
-// userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ['passwordUsr']});
+userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 const User = mongoose.model('User', userSchema);
 
-app.get("/", function(req,res){
+passport.use(User.createStrategy());
+
+passport.serializeUser(function(user, done) {
+    done(null, user);
+});
+   
+passport.deserializeUser(function(user, done) {
+    done(null, user);
+});
+
+//Google login strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+//Facebook login strategy
+passport.use(new FacebookStrategy({
+    clientID: process.env.FB_CLIENT_ID,
+    clientSecret: process.env.FB_CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/secrets",
+    profileFields: ['id', 'displayName', 'photos', 'email']
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    console.log(profile)
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
+
+
+
+
+app.get("/", function (req, res) {
     res.render("home")
-}); 
+});
 
-app.get("/login", function(req,res){
-    res.render("login", {errorMsgEmail : "", errorMsgPass : "" })
-}); 
+//////////////////////Google authentication////////////////////////////// 
+app.get("/auth/google",
+    passport.authenticate("google", { scope: ["profile"] })
+);
 
+app.get("/auth/google/secrets", 
+  passport.authenticate("google", { failureRedirect: "/login" }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect("/secrets");
+});
+////////////////////////////////////////////////////////////////////////
 
-app.get("/register", function(req,res){
+//////////////////////Facebook authentication////////////////////////////// 
+app.get('/auth/facebook',
+  passport.authenticate('facebook')
+);
 
-    res.render("register", {errorMsg : "" })
-}); 
+app.get('/auth/facebook/secrets',
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+});
+///////////////////////////////////////////////////////////////////////////
 
-app.post("/register", function(req,res){
+app.get("/login", function (req, res) {
+    res.render("login", { errorMsgEmail: "", errorMsgPass: "" })
+});
 
-    const email = req.body.username
-    const pass = req.body.password
+app.get("/register", function (req, res) {
 
-    if (!email || !pass){
-        console.log("Input files cannot be empty")
-        res.redirect("/register")
+    res.render("register", { errorMsg: "" })
+});
+
+app.get("/secrets", function (req, res){
+    if(req.isAuthenticated())
+    res.render("secrets");   
+    else
+    res.redirect("/login");
+});
+
+app.post("/register", function (req, res) {
+
+    User.register({ username: req.body.username}, req.body.password, function (err, user) {
+        if (err) {
+            console.log(err);
+            // res.redirect("/register");
+            res.render("register", {errorMsg : "The email that you provided already exist in the database."});
+        } else {
+            passport.authenticate('local')(req, res, function () {
+                console.log(res)
+                res.redirect('/secrets');
+            });
+        }
+
+    });
+
+});
+
+app.post('/login', 
+    passport.authenticate('local', { failureRedirect: '/login' }), 
+    function(req, res) {
+        res.redirect('/secrets');
     }
-    else {
-        searchEmailUser(email)
-        .then(result => {
-            if (result.length > 0)
-            res.render("register", {errorMsg : "The email that you provided already exist in the database."})     
-            else{
-                bcrypt.hash(pass, saltRounds).then(result => {
-                    registerUser(email, result)
-                    .then(res.render("secrets"))
-                    .finally(() => mongoose.connection.close());
-                });
-            }
-        }) 
-    }
-}); 
+);
 
-app.post("/login", function(req,res){
+// app.post("/login", function (req, res) {
 
-    const email = req.body.username
-    const pass = req.body.password
+//     const user = new User({
+//         username: req.body.username,
+//         password: req.body.password
+//     })
 
-    if (!email || !pass){
-        console.log("Input files cannot be empty")
-        res.redirect("/login")
-    }
-    else{
-        matchUsrAndPass(email)
-        .then(result => {
-            if (!result)
-            res.render("login", {errorMsgEmail : "User dont exist in the database.", errorMsgPass: ""})   
-            else{
-                bcrypt.compare(pass, result.passwordUsr).then(function(result) {
-                if (result === true)
-                res.render("secrets")
-                else
-                res.render("login", {errorMsgEmail : "", errorMsgPass: "Password is incorrect"})
-                });
-            }
-        })
-        .finally(() => mongoose.connection.close());
-    }
-}); 
+//     req.login(user, function(err) {
+//         if (err)
+//             console.log(err)
+//         else{
+//             passport.authenticate('local', { failureRedirect: '/login' })(req, res, function () {
+//                 res.redirect('/secrets');
+//             });
+//         }
+        
+//     });
+
+// });
+
+app.post('/secrets', function(req, res){
+    req.logout();
+    res.redirect('/');
+  });
 
 
 
 //////////////////////////////////////////MONGOOSE ASYNC FUNCTIONS//////////////////////////////////////////////
 
 
-async function registerUser(email, pass){
+async function registerUser(email, pass) {
     try {
         await mongoose.connect('mongodb://localhost:27017/userDB');
         console.log('Connected successfully to server');
@@ -116,46 +204,45 @@ async function registerUser(email, pass){
             passwordUsr: pass
         })
         await user.save();
-        
-    } catch (error) {
+
+    }
+    catch (error) {
         console.log(error)
     }
-    
+
 }
 
-async function searchEmailUser(email){
+async function searchEmailUser(email) {
     try {
         await mongoose.connect('mongodb://localhost:27017/userDB');
         console.log('Connected successfully to server');
-        const searchResult = await User.find({emailUsr: email});
+        const searchResult = await User.find({ emailUsr: email });
 
         return searchResult;
-        
-    } catch (error) {
-        console.log(error) 
+
     }
-    
+    catch (error) {
+        console.log(error)
+    }
+
 }
 
-async function matchUsrAndPass(email){
+async function matchUsrAndPass(email) {
     try {
         await mongoose.connect('mongodb://localhost:27017/userDB');
         console.log('Connected successfully to server');
-        const searchResult = await User.findOne({emailUsr: email});
+        const searchResult = await User.findOne({ emailUsr: email });
 
         return searchResult;
-        
-    } catch (error) {
-        console.log(error) 
+
     }
-    
+    catch (error) {
+        console.log(error)
+    }
+
 }
 
-
-
-
-
-app.listen(port, function(){
+app.listen(port, function () {
 
     console.log(`Server is running and listengin at ${port}`);
 });

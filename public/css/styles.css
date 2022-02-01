@@ -18,3 +18,9 @@ body {
 form span{
   color: red;
 }
+
+.socialLogins{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}

@@ -69,7 +69,7 @@ passport.deserializeUser(function(user, done) {
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
-    callbackURL: "https://rocky-lake-68566.herokuapp.com"
+    callbackURL: "https://rocky-lake-68566.herokuapp.com/secrets"
   },
   function(accessToken, refreshToken, profile, cb) {
     User.findOrCreate({ googleId: profile.id, dspName: profile.displayName}, function (err, user) {
@@ -82,7 +82,7 @@ passport.use(new GoogleStrategy({
 passport.use(new FacebookStrategy({
     clientID: process.env.FB_CLIENT_ID,
     clientSecret: process.env.FB_CLIENT_SECRET,
-    callbackURL: "https://rocky-lake-68566.herokuapp.com",
+    callbackURL: "https://rocky-lake-68566.herokuapp.com/secrets",
     profileFields: ['id', 'displayName', 'photos', 'email']
   },
   function(accessToken, refreshToken, profile, cb) {

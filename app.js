@@ -285,7 +285,12 @@ async function loadSecrets() {
 }
 
 
-app.listen(port, function () {
+let port = process.env.PORT;
+if (port == null || port == "") {
+  port = 3000;
+}
 
-    console.log(`Server is running and listengin at ${port}`);
+app.listen(port, function(){
+
+    console.log(`Server is running and listening at ${port}`);
 });

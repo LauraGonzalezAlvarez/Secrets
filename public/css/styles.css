@@ -24,3 +24,9 @@ form span{
   flex-direction: column;
   justify-content: space-evenly;
 }
+
+.secretsLogoutsButtons{
+  display: flex;
+  justify-content: center;
+
+}

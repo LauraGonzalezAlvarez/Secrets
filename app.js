@@ -30,7 +30,7 @@ app.set('view engine', 'ejs');
 
 
 app.use(session({
-    secret: 'wandeta pequena',
+    secret: process.env.LOCAL_SECRET,
     resave: false,
     saveUninitialized: true,  
 }))
@@ -40,16 +40,23 @@ app.use(passport.session());
 
 mongoose.connect('mongodb://localhost:27017/userDB');
 
+const postSchema = new mongoose.Schema({
+    secret: String
+})
+
 const userSchema = new mongoose.Schema({
     username: String,
     password: String,
+    dspName: String,
     googleId: String,
-    facebookId: String
+    facebookId: String,
+    secretPosts: Array
 })
 
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
 
+const Post = mongoose.model('Post', postSchema);
 const User = mongoose.model('User', userSchema);
 
 passport.use(User.createStrategy());
@@ -69,7 +76,7 @@ passport.use(new GoogleStrategy({
     callbackURL: "http://localhost:3000/auth/google/secrets"
   },
   function(accessToken, refreshToken, profile, cb) {
-    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+    User.findOrCreate({ googleId: profile.id, dspName: profile.displayName}, function (err, user) {
       return cb(err, user);
     });
   }
@@ -83,14 +90,11 @@ passport.use(new FacebookStrategy({
     profileFields: ['id', 'displayName', 'photos', 'email']
   },
   function(accessToken, refreshToken, profile, cb) {
-    console.log(profile)
-    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+    User.findOrCreate({ facebookId: profile.id, dspName: profile.displayName}, function (err, user) {
       return cb(err, user);
     });
   }
 ));
-
-
 
 
 app.get("/", function (req, res) {
@@ -124,17 +128,32 @@ app.get('/auth/facebook/secrets',
 ///////////////////////////////////////////////////////////////////////////
 
 app.get("/login", function (req, res) {
-    res.render("login", { errorMsgEmail: "", errorMsgPass: "" })
+    res.render("login")
 });
 
 app.get("/register", function (req, res) {
-
-    res.render("register", { errorMsg: "" })
+    res.render("register", {errorMsg: ""});
 });
 
 app.get("/secrets", function (req, res){
-    if(req.isAuthenticated())
-    res.render("secrets");   
+   
+    loadSecrets()
+        .then(result => {
+            if(req.isAuthenticated()){
+                if(!req.user.username)
+                res.render("secrets", {user: req.user.dspName, allPost: result});
+                else
+                res.render("secrets", {user: req.user.username, allPost: result});
+            }
+            else
+            res.render("secrets", {user: "", allPost: result});
+        });
+});
+
+app.get("/submit", function (req, res) {
+    if(req.isAuthenticated()){
+        res.render("submit"); 
+    }
     else
     res.redirect("/login");
 });
@@ -144,11 +163,9 @@ app.post("/register", function (req, res) {
     User.register({ username: req.body.username}, req.body.password, function (err, user) {
         if (err) {
             console.log(err);
-            // res.redirect("/register");
             res.render("register", {errorMsg : "The email that you provided already exist in the database."});
         } else {
             passport.authenticate('local')(req, res, function () {
-                console.log(res)
                 res.redirect('/secrets');
             });
         }
@@ -157,38 +174,29 @@ app.post("/register", function (req, res) {
 
 });
 
+app.post("/submit", function (req, res) {
+
+    const secretPost = req.body.secret;
+    const idUser = req.user._id;
+
+    createPost(idUser, secretPost)
+        .then(setTimeout(() => {
+            res.redirect('/secrets')
+            }, 1500));
+            
+});
+
 app.post('/login', 
-    passport.authenticate('local', { failureRedirect: '/login' }), 
+    passport.authenticate('local', { failureRedirect: '/login', failureMessage: true }), 
     function(req, res) {
         res.redirect('/secrets');
     }
 );
 
-// app.post("/login", function (req, res) {
-
-//     const user = new User({
-//         username: req.body.username,
-//         password: req.body.password
-//     })
-
-//     req.login(user, function(err) {
-//         if (err)
-//             console.log(err)
-//         else{
-//             passport.authenticate('local', { failureRedirect: '/login' })(req, res, function () {
-//                 res.redirect('/secrets');
-//             });
-//         }
-        
-//     });
-
-// });
-
 app.post('/secrets', function(req, res){
     req.logout();
     res.redirect('/');
-  });
-
+});
 
 
 //////////////////////////////////////////MONGOOSE ASYNC FUNCTIONS//////////////////////////////////////////////
@@ -241,6 +249,41 @@ async function matchUsrAndPass(email) {
     }
 
 }
+
+async function createPost(userId, userSecret) {
+    try {
+        
+        const searchResult = await User.findById(userId);
+
+        const post = new Post({
+            secret: userSecret
+        })
+
+        searchResult.secretPosts.push(post);
+
+        await searchResult.save();
+        await post.save();
+
+    }
+    catch (error) {
+        console.log(error);
+    }
+
+}
+
+async function loadSecrets() {
+    try {
+        const searchResult = await Post.find({});
+
+        return searchResult;
+
+    }
+    catch (error) {
+        console.log(error)
+    }
+
+}
+
 
 app.listen(port, function () {
 

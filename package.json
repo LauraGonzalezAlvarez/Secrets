@@ -4,7 +4,7 @@
   "description": "auth project",
   "main": "app.js",
   "scripts": {
-    "start": "node apps.js"
+    "start": "node app.js"
   },
   "author": "Fernando Avila",
   "license": "ISC",

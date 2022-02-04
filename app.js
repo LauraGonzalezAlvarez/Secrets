@@ -38,7 +38,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-mongoose.connect('mongodb://localhost:27017/userDB');
+mongoose.connect('mongodb+srv://admin-fernando:03eszv07@cluster0.23yhe.mongodb.net/secretsDB');
 
 const postSchema = new mongoose.Schema({
     secret: String
@@ -202,53 +202,53 @@ app.post('/secrets', function(req, res){
 //////////////////////////////////////////MONGOOSE ASYNC FUNCTIONS//////////////////////////////////////////////
 
 
-async function registerUser(email, pass) {
-    try {
-        await mongoose.connect('mongodb://localhost:27017/userDB');
-        console.log('Connected successfully to server');
+// async function registerUser(email, pass) {
+//     try {
+//         await mongoose.connect('mongodb://localhost:27017/userDB');
+//         console.log('Connected successfully to server');
 
-        const user = new User({
-            emailUsr: email,
-            passwordUsr: pass
-        })
-        await user.save();
+//         const user = new User({
+//             emailUsr: email,
+//             passwordUsr: pass
+//         })
+//         await user.save();
 
-    }
-    catch (error) {
-        console.log(error)
-    }
+//     }
+//     catch (error) {
+//         console.log(error)
+//     }
 
-}
+// }
 
-async function searchEmailUser(email) {
-    try {
-        await mongoose.connect('mongodb://localhost:27017/userDB');
-        console.log('Connected successfully to server');
-        const searchResult = await User.find({ emailUsr: email });
+// async function searchEmailUser(email) {
+//     try {
+//         await mongoose.connect('mongodb://localhost:27017/userDB');
+//         console.log('Connected successfully to server');
+//         const searchResult = await User.find({ emailUsr: email });
 
-        return searchResult;
+//         return searchResult;
 
-    }
-    catch (error) {
-        console.log(error)
-    }
+//     }
+//     catch (error) {
+//         console.log(error)
+//     }
 
-}
+// }
 
-async function matchUsrAndPass(email) {
-    try {
-        await mongoose.connect('mongodb://localhost:27017/userDB');
-        console.log('Connected successfully to server');
-        const searchResult = await User.findOne({ emailUsr: email });
+// async function matchUsrAndPass(email) {
+//     try {
+//         await mongoose.connect('mongodb://localhost:27017/userDB');
+//         console.log('Connected successfully to server');
+//         const searchResult = await User.findOne({ emailUsr: email });
 
-        return searchResult;
+//         return searchResult;
 
-    }
-    catch (error) {
-        console.log(error)
-    }
+//     }
+//     catch (error) {
+//         console.log(error)
+//     }
 
-}
+// }
 
 async function createPost(userId, userSecret) {
     try {

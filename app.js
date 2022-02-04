@@ -21,13 +21,10 @@ app.use(express.static("public"));
 
 // Parse data from the browser to server with bodyparser npm
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
-app.use(bodyParser.raw());
 
 
 // Using EJS with express, mandatory have views directory with (index) - or other name.ejs file!!!!
 app.set('view engine', 'ejs');
-
 
 app.use(session({
     secret: process.env.LOCAL_SECRET,

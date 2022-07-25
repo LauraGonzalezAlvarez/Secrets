@@ -18,7 +18,7 @@ const app = express();
 app.use(express.static("public"));
 
 
-// Parse data from the browser to server with bodyparser npm
+// Parse data from te browser to server with bodyparser npm
 app.use(bodyParser.urlencoded({ extended: false }));
 
 

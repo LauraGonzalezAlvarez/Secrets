@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node app.js"
   },
-  "author": "Fernando Avila",
+  "author": "Santiago y Laura",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.0.1",
